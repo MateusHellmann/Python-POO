@@ -1,76 +1,85 @@
-# main.py
-
-# Importando as classes das suas respectivas pastas
-from pessoas.cliente import Cliente
-from pessoas.vendedor import Vendedor
-from produtos.linhaBranca import LinhaBranca
-from produtos.eletroportatil import Eletroportatil
+from produtos import Categoria, LinhaBranca, Eletroportatil
+from pessoas import Cliente, Vendedor
+from pagamento import PagamentoAVista, PagamentoParcelado
 from venda import Venda
-from pagamento import PagamentoAVista, PagamentoCartaoParcelado
+from estoque import GerenciadorEstoque
+from comprovante import GeradorComprovante
 
-def main():
-    print("=== INICIANDO SISTEMA DA LOJA ===\n")
+# ---- Categorias --------------------------------------------------------
+cat_linha_branca = Categoria("Linha Branca", percentual_comissao=3.0)
+cat_eletroportateis = Categoria("Eletroportáteis", percentual_comissao=5.0)
 
-    # 1. Cadastrando as Pessoas
-    vendedor_joao = Vendedor(id_vendedor=1, nome="João Silva")
-    cliente_mateus = Cliente(nome="Mateus") # Considerando que sua classe Cliente pede um nome
+# ---- Produtos ------------------------------------------------------------
+geladeira = LinhaBranca(
+    id="LB001",
+    nome="Geladeira Frost Free 400L",
+    preco=3299.90,
+    quantidade_estoque=8,
+    categoria=cat_linha_branca,
+    prazo_garantia_meses=12,
+    consumo_energia_kwh_mes=45.0,
+    classificacao_eficiencia="A",
+)
+liquidificador = Eletroportatil(
+    id="EP001",
+    nome="Liquidificador Turbo",
+    preco=189.90,
+    quantidade_estoque=20,
+    categoria=cat_eletroportateis,
+    prazo_garantia_meses=6,
+    voltagem="Bivolt",
+)
 
-    # 2. Cadastrando os Produtos (Estoque Inicial)
-    # Criando um produto da Linha Branca
-    geladeira = LinhaBranca(
-        nome="Geladeira Brastemp Frost Free",
-        preco=3500.00,
-        quantidade_estoque=10,
-        prazo_garantia=12,         # 12 meses
-        taxa_comissao=0.05,  # 5% de comissão
-        consumo_kwh=45.5,
-        eficiencia="A"
-    )
+print("Catálogo cadastrado:")
+print(f"  - {geladeira.descricao_detalhada()}")
+print(f"  - {liquidificador.descricao_detalhada()}")
+print()
 
-    # Criando um Eletroportátil
-    liquidificador = Eletroportatil(
-        nome="Liquidificador Arno",
-        preco=150.00,
-        quantidade_estoque=20,
-        prazo_garantia=6,          # 6 meses
-        taxa_comissao=0.03,  # 3% de comissão
-        voltagem="220V"
-    )
+# ---- Pessoas ---------------------------------------------------------
+cliente = Cliente(nome="Ana Souza", cpf="123.456.789-00", telefone="(67) 99999-0000")
+vendedor = Vendedor(nome="Carlos Lima", matricula="V-045")
 
-    # 3. Iniciando o Atendimento (Venda)
-    print(f"Atendimento iniciado: Vendedor {vendedor_joao.nome} atendendo Cliente {cliente_mateus.nome}")
-    nova_venda = Venda(cliente=cliente_mateus, vendedor=vendedor_joao)
+gerenciador_estoque = GerenciadorEstoque()
 
-    # O cliente pede 1 geladeira e 2 liquidificadores
-    try:
-        nova_venda.adicionar_produto(geladeira, quantidade=1)
-        nova_venda.adicionar_produto(liquidificador, quantidade=2)
-        print("Produtos adicionados à venda com sucesso.\n")
-    except ValueError as erro:
-        print(f"Erro ao adicionar produto: {erro}")
+# ---- Venda 1: parcelada -------------------------------------------------
+forma_pagamento_1 = PagamentoParcelado(numero_parcelas=6, percentual_acrescimo_parcela=1.8)
+venda1 = Venda(vendedor=vendedor, cliente=cliente, forma_pagamento=forma_pagamento_1)
+venda1.adicionar_item(geladeira, 1)
+venda1.adicionar_item(liquidificador, 2)
 
-    # 4. Escolhendo a forma de pagamento
-    # Simulando um pagamento parcelado em 3x (que possui acréscimo de acordo com a nossa regra)
-    forma_de_pagamento = PagamentoCartaoParcelado(parcelas=3)
+print(f"Estoque antes da venda 1 -> Geladeira: {geladeira.get_quantidade_estoque()}, "
+        f"Liquidificador: {liquidificador.get_quantidade_estoque()}")
 
-    # 5. Finalizando a Venda
-    print("=== FINALIZANDO A VENDA ===")
-    try:
-        valor_final = nova_venda.finalizar(metodo_pagamento=forma_de_pagamento)
-        print(f"Venda concluída com sucesso!")
-        print(f"Valor Final (com juros do parcelamento): R$ {valor_final:.2f}\n")
-    except ValueError as erro:
-        print(f"Erro ao finalizar: {erro}")
+comissao1 = venda1.finalizar(gerenciador_estoque)
 
-    # 6. Conferindo os Resultados (Estoque e Comissões)
-    print("=== RESUMO PÓS-VENDA ===")
-    print("-> Status do Estoque:")
-    print(f"Estoque da {geladeira.nome}: {geladeira.quantidade_estoque} unidades") # Esperado: 9
-    print(f"Estoque do {liquidificador.nome}: {liquidificador.quantidade_estoque} unidades\n") # Esperado: 18
+print(f"Estoque depois da venda 1 -> Geladeira: {geladeira.get_quantidade_estoque()}, "
+        f"Liquidificador: {liquidificador.get_quantidade_estoque()}")
+print(f"Comissão do vendedor nesta venda: R$ {comissao1:.2f}")
+print()
+print(GeradorComprovante.gerar(venda1))
+print()
 
-    print("-> Resumo do Vendedor:")
-    vendedor_joao.exibir_resumo() 
-    # Comissão esperada: 5% de 3500 (175) + 3% de 300 (9) = R$ 184.00
+# ---- Venda 2: à vista (demonstra polimorfismo na forma de pagamento) ----
+forma_pagamento_2 = PagamentoAVista(percentual_desconto=8)
+venda2 = Venda(vendedor=vendedor, cliente=cliente, forma_pagamento=forma_pagamento_2)
+venda2.adicionar_item(liquidificador, 1)
+comissao2 = venda2.finalizar(gerenciador_estoque)
 
-if __name__ == "__main__":
-    main()
+print(GeradorComprovante.gerar(venda2))
+print()
+print(f"Comissão do vendedor na venda 2: R$ {comissao2:.2f}")
+print(f"Comissão acumulada total do vendedor: R$ {vendedor.get_comissao_acumulada():.2f}")
+
+# ---- Histórico do cliente ----------------------------------------------
+print()
+print("Histórico de vendas do cliente:")
+for v in cliente.get_historico_vendas():
+    print(f"  {v.get_descricao()} - Valor final: R$ {v.valor_final():.2f}")
+
+# ---- Tentativa de venda sem estoque suficiente (tratamento de erro) ----
+print()
+try:
+    venda3 = Venda(vendedor=vendedor, cliente=cliente, forma_pagamento=PagamentoAVista())
+    venda3.adicionar_item(liquidificador, 100)
+except ValueError as erro:
+    print(f"  Erro tratado com sucesso: {erro}")
